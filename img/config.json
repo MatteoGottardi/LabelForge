@@ -1,0 +1,21 @@
+{
+    "input_folder": "img",
+    "output_folder": "out",
+    "sheet_format": "A3",
+    "unit": "mm",
+    "label_width": 145,
+    "label_height": 145,
+    "margins": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0
+    },
+    "gaps": {
+        "h": 0,
+        "v": 0
+    },
+    "rotate": false,
+    "pdf_name": "test.pdf",
+    "sort_option": "none"
+}
