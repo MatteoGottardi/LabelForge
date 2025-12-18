@@ -1,0 +1,19 @@
+{
+    "output_folder": "out",
+    "sheet_format": "A3",
+    "unit": "mm",
+    "label_width": 105,
+    "label_height": 140,
+    "margins": {
+        "top": 20,
+        "bottom": 20,
+        "left": 20,
+        "right": 20
+    },
+    "gaps": {
+        "h": 0,
+        "v": 0
+    },
+    "rotate": true,
+    "sort_option": "none"
+}

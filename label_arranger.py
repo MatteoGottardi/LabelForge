@@ -23,69 +23,40 @@ import json
 
 def get_user_inputs():
     """
-    Interactively prompt the user for all required inputs, or load from config.json if available.
+    Interactively prompt the user for input folder, or load from config.json if available.
+    Can also accept a config file path as command-line argument.
+    If config exists in input_folder, return full params; else return only input_folder.
     """
     print("Auto Layout Etichette - Image to PDF Arranger")
     print("=" * 50)
 
-    input_folder = input("Enter input folder path containing images: ").strip()
-    config_path = os.path.join(input_folder, 'config.json')
-    if os.path.exists(config_path):
-        with open(config_path, 'r') as f:
-            params = json.load(f)
-        print(f"Loaded configuration from {config_path}")
-        return params
-    else:
-        output_folder = input("Enter output folder path for PDF: ").strip()
-
-        sheet_format = input("Sheet format (A4 or A3): ").strip().upper()
-        while sheet_format not in ['A4', 'A3']:
-            sheet_format = input("Invalid. Sheet format (A4 or A3): ").strip().upper()
-
-        unit = input("Units for dimensions (mm or inch): ").strip().lower()
-        while unit not in ['mm', 'inch']:
-            unit = input("Invalid. Units (mm or inch): ").strip().lower()
-
-        try:
-            label_width = float(input("Label width: ").strip())
-            label_height = float(input("Label height: ").strip())
-            margins_top = float(input("Top margin: ").strip())
-            margins_bottom = float(input("Bottom margin: ").strip())
-            margins_left = float(input("Left margin: ").strip())
-            margins_right = float(input("Right margin: ").strip())
-            gap_h = float(input("Horizontal gap between labels: ").strip())
-            gap_v = float(input("Vertical gap between labels: ").strip())
-        except ValueError:
-            print("Invalid numeric input. Exiting.")
+    if len(sys.argv) > 1:
+        config_path = sys.argv[1]
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                params = json.load(f)
+            params['input_folder'] = os.path.dirname(config_path)
+            print(f"Loaded configuration from {config_path}")
+            return params
+        else:
+            print(f"Config file {config_path} not found.")
             sys.exit(1)
-
-        rotate = input("Allow rotation for better fit? (y/n): ").strip().lower() == 'y'
-
-        pdf_name = input("PDF filename (default 'arranged_labels.pdf'): ").strip()
-        if not pdf_name:
-            pdf_name = "arranged_labels.pdf"
-
-        sort_option = input("Sort images by (name/size/none): ").strip().lower()
-        while sort_option not in ['name', 'size', 'none']:
-            sort_option = input("Invalid. Sort by (name/size/none): ").strip().lower()
-
-        return {
-            'input_folder': input_folder,
-            'output_folder': output_folder,
-            'sheet_format': sheet_format,
-            'unit': unit,
-            'label_width': label_width,
-            'label_height': label_height,
-            'margins': {'top': margins_top, 'bottom': margins_bottom, 'left': margins_left, 'right': margins_right},
-            'gaps': {'h': gap_h, 'v': gap_v},
-            'rotate': rotate,
-            'pdf_name': pdf_name,
-            'sort_option': sort_option
-        }
+    else:
+        input_folder = input("Enter input folder path containing images: ").strip()
+        config_path = os.path.join(input_folder, 'config.json')
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                params = json.load(f)
+            params['input_folder'] = input_folder
+            print(f"Loaded configuration from {config_path}")
+            return params
+        else:
+            # No config, return only input_folder
+            return {'input_folder': input_folder}
 
 def load_images(folder_path):
     """
-    Load all supported images from the input folder.
+    Load all supported images from the input folder and its subfolders recursively.
     Supports JPEG and PNG formats.
     """
     supported_ext = ('.jpg', '.jpeg', '.png')
@@ -94,14 +65,15 @@ def load_images(folder_path):
         print(f"Error: Input folder '{folder_path}' does not exist.")
         return images
 
-    for filename in os.listdir(folder_path):
-        if filename.lower().endswith(supported_ext):
-            filepath = os.path.join(folder_path, filename)
-            try:
-                img = Image.open(filepath)
-                images.append((filename, img))
-            except Exception as e:
-                print(f"Error loading image '{filename}': {e}")
+    for root, dirs, files in os.walk(folder_path):
+        for filename in files:
+            if filename.lower().endswith(supported_ext):
+                filepath = os.path.join(root, filename)
+                try:
+                    img = Image.open(filepath)
+                    images.append((filename, img))
+                except Exception as e:
+                    print(f"Error loading image '{filename}': {e}")
     return images
 
 def sort_images(images, sort_option):
@@ -229,16 +201,23 @@ def generate_pdf(images, params, output_path):
         print(f"Error saving PDF: permission denied. The file may be open in another program. Close it and try again.")
         print(f"Output path: {output_path}")
 
-def main():
+def process_batch(params):
     """
-    Main function to orchestrate the script.
+    Process a batch of images with given parameters.
     """
-    params = get_user_inputs()
+    # Set pdf_name based on input folder name if not present
+    if 'pdf_name' not in params:
+        params['pdf_name'] = os.path.basename(params['input_folder']) + ".pdf"
+
+    # Handle output folder
+    output_folder = params['output_folder']
+    if not os.path.isabs(output_folder):
+        output_folder = os.path.join(os.getcwd(), output_folder)
 
     # Validate output folder
-    if not os.path.isdir(params['output_folder']):
+    if not os.path.isdir(output_folder):
         try:
-            os.makedirs(params['output_folder'])
+            os.makedirs(output_folder)
         except Exception as e:
             print(f"Error creating output folder: {e}")
             return
@@ -259,7 +238,7 @@ def main():
     # Load and process images
     images = load_images(params['input_folder'])
     if not images:
-        print("No valid images found in the input folder.")
+        print(f"No valid images found in the input folder: {params['input_folder']}")
         return
 
     sort_images(images, params['sort_option'])
@@ -289,12 +268,40 @@ def main():
         processed_images.append((name, processed_path))
 
     # Generate PDF
-    output_path = os.path.join(params['output_folder'], params['pdf_name'])
+    output_path = os.path.join(output_folder, params['pdf_name'])
     generate_pdf(processed_images, params, output_path)
 
     # Clean up temp dir
     import shutil
     shutil.rmtree(temp_dir)
+
+def main():
+    """
+    Main function to orchestrate the script.
+    """
+    params = get_user_inputs()
+
+    input_folder = params['input_folder']
+    if 'output_folder' in params:
+        # Single batch processing (config found in input_folder)
+        process_batch(params)
+    else:
+        # Multiple batch processing: scan subfolders for config.json
+        subfolders = []
+        for root, dirs, files in os.walk(input_folder):
+            if 'config.json' in files:
+                subfolders.append(root)
+
+        if not subfolders:
+            print(f"No config.json found in '{input_folder}' or its subfolders.")
+            return
+
+        for sub in subfolders:
+            config_path = os.path.join(sub, 'config.json')
+            with open(config_path, 'r') as f:
+                sub_params = json.load(f)
+            sub_params['input_folder'] = sub
+            process_batch(sub_params)
 
 if __name__ == "__main__":
     main()
