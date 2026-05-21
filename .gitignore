@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Executable (will be added as release)
+*.exe
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
