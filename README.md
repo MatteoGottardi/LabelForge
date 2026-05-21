@@ -1,5 +1,7 @@
 # Auto Layout Etichette
 
+Python CLI per creare layout di etichette ottimizzati su fogli A4/A3 con linee di taglio.
+
 A Python script to arrange images onto A4 or A3 sheets efficiently, minimizing wasted space, and generate a high-resolution PDF with cut lines for labels.
 
 ## Requirements
